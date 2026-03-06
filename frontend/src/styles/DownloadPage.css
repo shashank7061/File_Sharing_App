@@ -1,0 +1,152 @@
+.download-page-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.download-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.download-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.download-header svg {
+  color: #667eea;
+  margin-bottom: 1rem;
+}
+
+.download-header h2 {
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.download-header p {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.error-box svg {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.download-actions {
+  margin-bottom: 2rem;
+}
+
+.download-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.3s ease;
+  margin-bottom: 1rem;
+}
+
+.download-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.download-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.download-btn svg {
+  font-size: 1.25rem;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.download-info {
+  text-align: center;
+  color: #666;
+}
+
+.download-info p {
+  margin: 0.5rem 0;
+}
+
+.note {
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.security-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.security-notice svg {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.security-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.security-notice strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .download-page-container {
+    margin: 1rem auto;
+  }
+  
+  .download-card {
+    padding: 1.5rem;
+  }
+  
+  .download-header svg {
+    font-size: 48px;
+  }
+}
