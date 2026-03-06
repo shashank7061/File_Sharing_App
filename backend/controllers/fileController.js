@@ -3,6 +3,9 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const sendEmail = require('../utils/sendEmail');
+const cloudinary = require('../config/cloudinary');
+
+const useCloudinary = process.env.USE_CLOUDINARY === 'true';
 
 // Upload file
 exports.uploadFile = async (req, res) => {
@@ -26,15 +29,21 @@ exports.uploadFile = async (req, res) => {
     // Generate UUID for download link
     const uuid = uuidv4();
 
+    // Handle Cloudinary or local path
+    const filePath = useCloudinary ? req.file.path : req.file.path; // Cloudinary returns secure_url in path
+    const cloudinaryId = useCloudinary && req.file.filename ? req.file.filename : null;
+
     // Create file record in database
     const file = await File.create({
-      filename: req.file.filename,
+      filename: req.file.filename || req.file.originalname,
       originalName: req.file.originalname,
-      path: req.file.path,
+      path: filePath,
+      cloudinaryId: cloudinaryId,
       size: req.file.size,
       mimetype: req.file.mimetype,
       uuid: uuid,
-      expiresAt: expiresAt
+      expiresAt: expiresAt,
+      isCloudinary: useCloudinary
     });
 
     // Generate download link
@@ -48,17 +57,26 @@ exports.uploadFile = async (req, res) => {
         filename: file.originalName,
         size: file.size,
         downloadLink: downloadLink,
-        expiresAt: file.expiresAt
+        expiresAt: file.expiresAt,
+        storage: useCloudinary ? 'cloudinary' : 'local'
       }
     });
   } catch (error) {
     console.error('Upload error:', error);
     
     // Delete uploaded file if database operation fails
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Error deleting file:', err);
-      });
+    if (req.file) {
+      if (useCloudinary && req.file.filename) {
+        // Delete from Cloudinary
+        cloudinary.uploader.destroy(req.file.filename, (err) => {
+          if (err) console.error('Error deleting from Cloudinary:', err);
+        });
+      } else if (req.file.path && fs.existsSync(req.file.path)) {
+        // Delete from local storage
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Error deleting file:', err);
+        });
+      }
     }
     
     res.status(500).json({
@@ -87,9 +105,15 @@ exports.downloadFile = async (req, res) => {
     // Check if file has expired
     if (file.expiresAt && new Date() > file.expiresAt) {
       // Delete expired file
-      fs.unlink(file.path, (err) => {
-        if (err) console.error('Error deleting expired file:', err);
-      });
+      if (file.isCloudinary && file.cloudinaryId) {
+        cloudinary.uploader.destroy(file.cloudinaryId, (err) => {
+          if (err) console.error('Error deleting expired file from Cloudinary:', err);
+        });
+      } else if (fs.existsSync(file.path)) {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error('Error deleting expired file:', err);
+        });
+      }
       await File.deleteOne({ uuid: id });
       
       return res.status(410).json({
@@ -98,7 +122,17 @@ exports.downloadFile = async (req, res) => {
       });
     }
 
-    // Check if file exists on disk
+    // Increment download count
+    file.downloadCount += 1;
+    await file.save();
+
+    // Handle Cloudinary files
+    if (file.isCloudinary) {
+      // Redirect to Cloudinary URL for download
+      return res.redirect(file.path);
+    }
+
+    // Handle local files
     if (!fs.existsSync(file.path)) {
       return res.status(404).json({
         success: false,
@@ -106,18 +140,16 @@ exports.downloadFile = async (req, res) => {
       });
     }
 
-    // Increment download count
-    file.downloadCount += 1;
-    await file.save();
-
     // Send file
     res.download(file.path, file.originalName, (err) => {
       if (err) {
         console.error('Download error:', err);
-        res.status(500).json({
-          success: false,
-          message: 'Error downloading file'
-        });
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Error downloading file'
+          });
+        }
       }
     });
   } catch (error) {

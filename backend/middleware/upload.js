@@ -1,17 +1,40 @@
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const cloudinary = require('../config/cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
+const useCloudinary = process.env.USE_CLOUDINARY === 'true';
+
+let storage;
+
+if (useCloudinary) {
+  // Cloudinary Storage Configuration
+  storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'file-share-uploads',
+      resource_type: 'auto',
+      public_id: (req, file) => {
+        const uniqueName = `${uuidv4()}-${Date.now()}`;
+        return uniqueName;
+      },
+    },
+  });
+  console.log('✨ Using Cloudinary storage');
+} else {
+  // Local Storage Configuration
+  storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+      const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+      cb(null, uniqueName);
+    }
+  });
+  console.log('📁 Using local storage');
+}
 
 // File filter
 const fileFilter = (req, file, cb) => {

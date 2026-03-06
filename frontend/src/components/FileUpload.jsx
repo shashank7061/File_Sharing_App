@@ -12,12 +12,14 @@ function FileUpload() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [dropAnimation, setDropAnimation] = useState(false);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
       setError('');
+      triggerDropAnimation();
     }
   };
 
@@ -39,7 +41,13 @@ function FileUpload() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
       setError('');
+      triggerDropAnimation();
     }
+  };
+
+  const triggerDropAnimation = () => {
+    setDropAnimation(true);
+    setTimeout(() => setDropAnimation(false), 600);
   };
 
   const handleUpload = async (e) => {
@@ -119,7 +127,7 @@ function FileUpload() {
             </div>
 
             {file && (
-              <div className="selected-file">
+              <div className={`selected-file ${dropAnimation ? 'drop-animation' : ''}`}>
                 <FiFile />
                 <div className="file-details">
                   <p className="file-name">{file.name}</p>
