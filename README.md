@@ -12,7 +12,7 @@ A full-stack web application for secure file sharing with email notifications, u
 - 🎨 **Modern UI** - Responsive React interface
 - 🔒 **Secure** - File access control and validation
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 - **React** + **Vite** - Fast and modern development
@@ -27,7 +27,7 @@ A full-stack web application for secure file sharing with email notifications, u
 - **UUID** - Unique link generation
 - **Dotenv** - Environment variables
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 File_share/
@@ -75,7 +75,7 @@ File_share/
 └── README.md
 ```
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -146,7 +146,7 @@ npm run dev
 
 Frontend will run on `http://localhost:5173`
 
-## 📖 API Endpoints
+##  API Endpoints
 
 ### Upload File
 ```http
@@ -197,7 +197,7 @@ Response:
 - File download or error message
 ```
 
-## 🎯 Usage
+##  Usage
 
 1. **Upload a File**
    - Open the application in your browser
@@ -256,7 +256,7 @@ AWS_REGION=us-east-1
 USE_S3=true
 ```
 
-## 🔒 Security Features
+##  Security Features
 
 - UUID-based unique links
 - File expiry mechanism
@@ -264,7 +264,7 @@ USE_S3=true
 - CORS configuration
 - Error handling and validation
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Email not sending
 - Verify Gmail account has 2FA enabled
@@ -281,21 +281,19 @@ USE_S3=true
 - Verify `uploads/` directory exists
 - Check disk space
 
-## 📝 License
 
-This project is open source and available under the [MIT License](LICENSE).
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome!
 
 ## 👨‍💻 Author
 
-Your Name
+Shashank kumar
 
 ---
 
-**Made with ❤️ using React, Node.js, and MongoDB**
+**Made with using React, Node.js, and MongoDB**
  │ Generate UUID link
  ▼
 Database (MongoDB)

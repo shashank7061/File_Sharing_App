@@ -1,16 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const fileRoutes = require('./routes/fileRoutes');
+dotenv.config();
+const connectDB = require('./config/db.js');
+connectDB();
+const fileRoutes = require('./routes/fileRoutes.js');
 const path = require('path');
 const fs = require('fs');
 
 // Load environment variables
-dotenv.config();
 
 // Connect to MongoDB
-connectDB();
 
 const app = express();
 
@@ -22,9 +22,13 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [process.env.FRONTEND_URL || 'http://localhost:5173',
+    'http://localhost:5173', // For testing with tools like Postman
+    'http://localhost:5174'  
+  ],
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -2,8 +2,8 @@ const File = require('../models/File');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
-const sendEmail = require('../utils/sendEmail');
-const cloudinary = require('../config/cloudinary');
+const sendEmail = require('../utils/sendEmail.js');
+const cloudinary = require('../config/cloudinary.js');
 
 const useCloudinary = process.env.USE_CLOUDINARY === 'true';
 
