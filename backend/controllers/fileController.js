@@ -7,7 +7,6 @@ const cloudinary = require('../config/cloudinary.js');
 
 const useCloudinary = process.env.USE_CLOUDINARY === 'true';
 
-// Upload file
 exports.uploadFile = async (req, res) => {
   try {
     if (!req.file) {
@@ -17,23 +16,18 @@ exports.uploadFile = async (req, res) => {
       });
     }
 
-    // Get expiry hours from request or use default
     const expiryHours = parseInt(req.body.expiryHours) || parseInt(process.env.FILE_EXPIRY_HOURS) || 24;
     
-    // Calculate expiry date
     let expiresAt = null;
     if (expiryHours > 0) {
       expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
     }
 
-    // Generate UUID for download link
     const uuid = uuidv4();
 
-    // Handle Cloudinary or local path
     const filePath = useCloudinary ? req.file.path : req.file.path; // Cloudinary returns secure_url in path
     const cloudinaryId = useCloudinary && req.file.filename ? req.file.filename : null;
 
-    // Create file record in database
     const file = await File.create({
       filename: req.file.filename || req.file.originalname,
       originalName: req.file.originalname,
@@ -46,7 +40,6 @@ exports.uploadFile = async (req, res) => {
       isCloudinary: useCloudinary
     });
 
-    // Generate download link
     const downloadLink = `${process.env.BASE_URL}/api/files/download/${uuid}`;
 
     res.status(201).json({
@@ -64,15 +57,12 @@ exports.uploadFile = async (req, res) => {
   } catch (error) {
     console.error('Upload error:', error);
     
-    // Delete uploaded file if database operation fails
     if (req.file) {
       if (useCloudinary && req.file.filename) {
-        // Delete from Cloudinary
         cloudinary.uploader.destroy(req.file.filename, (err) => {
           if (err) console.error('Error deleting from Cloudinary:', err);
         });
       } else if (req.file.path && fs.existsSync(req.file.path)) {
-        // Delete from local storage
         fs.unlink(req.file.path, (err) => {
           if (err) console.error('Error deleting file:', err);
         });
@@ -87,12 +77,10 @@ exports.uploadFile = async (req, res) => {
   }
 };
 
-// Download file
 exports.downloadFile = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find file by UUID
     const file = await File.findOne({ uuid: id });
 
     if (!file) {
@@ -102,9 +90,7 @@ exports.downloadFile = async (req, res) => {
       });
     }
 
-    // Check if file has expired
     if (file.expiresAt && new Date() > file.expiresAt) {
-      // Delete expired file
       if (file.isCloudinary && file.cloudinaryId) {
         cloudinary.uploader.destroy(file.cloudinaryId, (err) => {
           if (err) console.error('Error deleting expired file from Cloudinary:', err);
@@ -122,17 +108,13 @@ exports.downloadFile = async (req, res) => {
       });
     }
 
-    // Increment download count
     file.downloadCount += 1;
     await file.save();
 
-    // Handle Cloudinary files
     if (file.isCloudinary) {
-      // Redirect to Cloudinary URL for download
       return res.redirect(file.path);
     }
 
-    // Handle local files
     if (!fs.existsSync(file.path)) {
       return res.status(404).json({
         success: false,
@@ -162,7 +144,6 @@ exports.downloadFile = async (req, res) => {
   }
 };
 
-// Send email with download link
 exports.sendEmailWithLink = async (req, res) => {
   try {
     const { fileId, senderEmail, receiverEmail, message } = req.body;
@@ -193,7 +174,6 @@ exports.sendEmailWithLink = async (req, res) => {
       });
     }
 
-    // Generate download link
     const downloadLink = `${process.env.BASE_URL}/api/files/download/${fileId}`;
 
     // Format expiry date
@@ -201,7 +181,6 @@ exports.sendEmailWithLink = async (req, res) => {
       ? `This link will expire on ${new Date(file.expiresAt).toLocaleString()}.`
       : 'This link has no expiration date.';
 
-    // Email HTML template
     const emailHTML = `
       <!DOCTYPE html>
       <html>
