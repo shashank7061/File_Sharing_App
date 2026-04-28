@@ -7,7 +7,30 @@ const cloudinary = require('../config/cloudinary.js');
 
 const useCloudinary = process.env.USE_CLOUDINARY === 'true';
 
+/**
+ * Helper: Upload a buffer to Cloudinary using upload_stream.
+ * Returns { secure_url, public_id, bytes, ... }
+ */
+const uploadToCloudinary = (buffer, options = {}) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'file-share-uploads',
+        resource_type: 'auto',
+        ...options
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
+};
+
 exports.uploadFile = async (req, res) => {
+  let cloudinaryPublicId = null; // track for cleanup on error
+
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -15,6 +38,12 @@ exports.uploadFile = async (req, res) => {
         message: 'No file uploaded'
       });
     }
+
+    console.log('📤 File received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size || (req.file.buffer ? req.file.buffer.length : 0)
+    });
 
     const expiryHours = parseInt(req.body.expiryHours) || parseInt(process.env.FILE_EXPIRY_HOURS) || 24;
     
@@ -25,15 +54,33 @@ exports.uploadFile = async (req, res) => {
 
     const uuid = uuidv4();
 
-    const filePath = useCloudinary ? req.file.path : req.file.path; // Cloudinary returns secure_url in path
-    const cloudinaryId = useCloudinary && req.file.filename ? req.file.filename : null;
+    let filePath, cloudinaryId, fileSize;
+    
+    if (useCloudinary) {
+      // Upload the in-memory buffer to Cloudinary
+      const uniqueName = `${uuidv4()}-${Date.now()}`;
+      console.log('☁️  Uploading to Cloudinary...');
+      const result = await uploadToCloudinary(req.file.buffer, {
+        public_id: uniqueName
+      });
+      filePath = result.secure_url;
+      cloudinaryId = result.public_id;
+      cloudinaryPublicId = cloudinaryId; // for cleanup
+      fileSize = result.bytes || req.file.buffer.length;
+      console.log('☁️  Cloudinary upload complete:', { filePath, cloudinaryId });
+    } else {
+      filePath = req.file.path; // Local file path
+      cloudinaryId = null;
+      fileSize = req.file.size;
+      console.log('📁 Local upload:', { filePath });
+    }
 
     const file = await File.create({
-      filename: req.file.filename || req.file.originalname,
+      filename: cloudinaryId || req.file.filename || req.file.originalname,
       originalName: req.file.originalname,
       path: filePath,
       cloudinaryId: cloudinaryId,
-      size: req.file.size,
+      size: fileSize,
       mimetype: req.file.mimetype,
       uuid: uuid,
       expiresAt: expiresAt,
@@ -41,6 +88,8 @@ exports.uploadFile = async (req, res) => {
     });
 
     const downloadLink = `${process.env.BASE_URL}/api/files/download/${uuid}`;
+
+    console.log('✅ File saved to DB:', { uuid, downloadLink, storage: useCloudinary ? 'cloudinary' : 'local' });
 
     res.status(201).json({
       success: true,
@@ -55,18 +104,21 @@ exports.uploadFile = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('❌ Upload error:', error);
     
-    if (req.file) {
-      if (useCloudinary && req.file.filename) {
-        cloudinary.uploader.destroy(req.file.filename, (err) => {
-          if (err) console.error('Error deleting from Cloudinary:', err);
-        });
-      } else if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlink(req.file.path, (err) => {
-          if (err) console.error('Error deleting file:', err);
-        });
+    // Cleanup on error
+    if (cloudinaryPublicId) {
+      try {
+        await cloudinary.uploader.destroy(cloudinaryPublicId);
+        console.log('🗑️  Cleaned up Cloudinary file:', cloudinaryPublicId);
+      } catch (cleanupErr) {
+        console.error('Error cleaning up Cloudinary:', cleanupErr.message);
       }
+    } else if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting local file:', err);
+        else console.log('🗑️  Cleaned up local file:', req.file.path);
+      });
     }
     
     res.status(500).json({
@@ -90,12 +142,16 @@ exports.downloadFile = async (req, res) => {
       });
     }
 
+    // Check expiry
     if (file.expiresAt && new Date() > file.expiresAt) {
+      // Cleanup expired file
       if (file.isCloudinary && file.cloudinaryId) {
-        cloudinary.uploader.destroy(file.cloudinaryId, (err) => {
-          if (err) console.error('Error deleting expired file from Cloudinary:', err);
-        });
-      } else if (fs.existsSync(file.path)) {
+        try {
+          await cloudinary.uploader.destroy(file.cloudinaryId);
+        } catch (err) {
+          console.error('Error deleting expired file from Cloudinary:', err.message);
+        }
+      } else if (file.path && fs.existsSync(file.path)) {
         fs.unlink(file.path, (err) => {
           if (err) console.error('Error deleting expired file:', err);
         });
@@ -108,22 +164,26 @@ exports.downloadFile = async (req, res) => {
       });
     }
 
+    // Increment download count
     file.downloadCount += 1;
     await file.save();
 
+    // For Cloudinary files, redirect to the secure URL
     if (file.isCloudinary) {
+      console.log('📥 Redirecting to Cloudinary URL:', file.path);
       return res.redirect(file.path);
     }
 
-    if (!fs.existsSync(file.path)) {
+    // For local files, send the file
+    const absolutePath = path.resolve(file.path);
+    if (!fs.existsSync(absolutePath)) {
       return res.status(404).json({
         success: false,
         message: 'File not found on server'
       });
     }
 
-    // Send file
-    res.download(file.path, file.originalName, (err) => {
+    res.download(absolutePath, file.originalName, (err) => {
       if (err) {
         console.error('Download error:', err);
         if (!res.headersSent) {
@@ -259,6 +319,8 @@ exports.sendEmailWithLink = async (req, res) => {
       </html>
     `;
 
+    console.log('📧 Sending email from', senderEmail, 'to', receiverEmail, 'for file:', fileId);
+
     // Send email
     await sendEmail({
       to: receiverEmail,
@@ -271,11 +333,10 @@ exports.sendEmailWithLink = async (req, res) => {
       message: 'Email sent successfully'
     });
   } catch (error) {
-    console.error('Email sending error:', error);
+    console.error('❌ Email sending error:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Error sending email',
-      error: error.message
+      message: error.message || 'Error sending email'
     });
   }
 };
